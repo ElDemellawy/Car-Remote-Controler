@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-HTTP Server for CC3200 Garage Door Controller (Fixed)
+HTTP Server for CC3200 Car Door Controller (Fixed)
 
 This server receives HTTP commands from the CC3200
 and provides a web interface for testing.
@@ -18,23 +18,23 @@ from datetime import datetime
 HOST = "0.0.0.0"  # Listen on all interfaces
 PORT = 8080
 
-# Garage state
-garage_status = "closed"
+# Car door state
+car_door_status = "locked"
 last_command = None
 last_command_time = None
 cc3200_status = None
 last_cc3200_update = None
 
-class GarageHTTPHandler(BaseHTTPRequestHandler):
+class CarDoorHTTPHandler(BaseHTTPRequestHandler):
     """
-    HTTP handler for garage door commands
+    HTTP handler for car door lock/unlock commands
     """
     
     def do_GET(self):
         """
-        Handle GET requests - return garage status
+        Handle GET requests - return car door status
         """
-        if self.path == "/":
+        if self.path == "/" or self.path == "/car/status":
             self.send_response(200)
             self.send_header('Content-type', 'text/html')
             self.end_headers()
@@ -43,7 +43,7 @@ class GarageHTTPHandler(BaseHTTPRequestHandler):
             <!DOCTYPE html>
             <html>
             <head>
-                <title>CC3200 Garage Controller - HTTP</title>
+                <title>CC3200 Car Door Controller - HTTP</title>
                 <style>
                     body {{ font-family: Arial, sans-serif; margin: 40px; background-color: #f0f0f0; }}
                     .container {{ max-width: 600px; margin: 0 auto; background: white; padding: 30px; border-radius: 10px; box-shadow: 0 2px 10px rgba(0,0,0,0.1); }}
@@ -52,8 +52,8 @@ class GarageHTTPHandler(BaseHTTPRequestHandler):
                     .button:hover {{ background-color: #45a049; }}
                     .button:active {{ background-color: #3d8b40; }}
                     .status {{ padding: 15px; margin: 20px 0; border-radius: 5px; }}
-                    .status.closed {{ background-color: #ffebee; color: #c62828; border: 1px solid #ef9a9a; }}
-                    .status.open {{ background-color: #e8f5e8; color: #2e7d32; border: 1px solid #a5d6a7; }}
+                    .status.locked {{ background-color: #ffebee; color: #c62828; border: 1px solid #ef9a9a; }}
+                    .status.unlocked {{ background-color: #e8f5e8; color: #2e7d32; border: 1px solid #a5d6a7; }}
                     .info {{ background-color: #e3f2fd; padding: 15px; border-radius: 5px; margin: 20px 0; }}
                     .log {{ background-color: #f5f5f5; padding: 15px; border-radius: 5px; margin: 20px 0; max-height: 200px; overflow-y: auto; }}
                     .cc3200-status {{ background-color: #fff3e0; padding: 15px; border-radius: 5px; margin: 20px 0; }}
@@ -61,7 +61,7 @@ class GarageHTTPHandler(BaseHTTPRequestHandler):
             </head>
             <body>
                 <div class="container">
-                    <h1>🚗 CC3200 Garage Controller (HTTP)</h1>
+                    <h1>🚗 CC3200 Car Door Controller (HTTP)</h1>
                     
                     <div class="info">
                         <h3>📡 HTTP Server Status</h3>
@@ -69,15 +69,15 @@ class GarageHTTPHandler(BaseHTTPRequestHandler):
                         <p><strong>CC3200 IP:</strong> 192.168.0.105</p>
                         <p><strong>Endpoints:</strong></p>
                         <ul>
-                            <li>GET / - Get garage status</li>
-                            <li>POST /open - Open garage door</li>
-                            <li>POST /close - Close garage door</li>
-                            <li>POST /api/garage/status - CC3200 status updates</li>
+                            <li>GET /car/status - Get car door status</li>
+                            <li>POST /lock - Lock car door</li>
+                            <li>POST /unlock - Unlock car door</li>
+                            <li>POST /api/car/status - CC3200 status updates</li>
                         </ul>
                     </div>
                     
-                    <div class="status {'open' if garage_status == 'open' else 'closed'}" id="garageStatus">
-                        <h3>🏠 Garage Status: {garage_status.upper()}</h3>
+                    <div class="status {'unlocked' if car_door_status == 'unlocked' else 'locked'}" id="carDoorStatus">
+                        <h3>🚗 Car Door Status: {car_door_status.upper()}</h3>
                     </div>
                     
                     <div class="cc3200-status" id="cc3200Status">
@@ -87,8 +87,8 @@ class GarageHTTPHandler(BaseHTTPRequestHandler):
                     </div>
                     
                     <div style="text-align: center;">
-                        <button class="button" onclick="sendCommand('open')">🚪 OPEN GARAGE</button>
-                        <button class="button" onclick="sendCommand('close')">🔒 CLOSE GARAGE</button>
+                        <button class="button" onclick="sendCommand('lock')">🔒 LOCK CAR</button>
+                        <button class="button" onclick="sendCommand('unlock')">🔓 UNLOCK CAR</button>
                     </div>
                     
                     <div class="log">
@@ -118,13 +118,13 @@ class GarageHTTPHandler(BaseHTTPRequestHandler):
                     }}
                     
                     function updateStatus(status) {{
-                        const statusDiv = document.getElementById('garageStatus');
-                        if (status === 'open') {{
-                            statusDiv.className = 'status open';
-                            statusDiv.innerHTML = '<h3>🏠 Garage Status: OPEN</h3>';
+                        const statusDiv = document.getElementById('carDoorStatus');
+                        if (status === 'unlocked') {{
+                            statusDiv.className = 'status unlocked';
+                            statusDiv.innerHTML = '<h3>🚗 Car Door Status: UNLOCKED</h3>';
                         }} else {{
-                            statusDiv.className = 'status closed';
-                            statusDiv.innerHTML = '<h3>🏠 Garage Status: CLOSED</h3>';
+                            statusDiv.className = 'status locked';
+                            statusDiv.innerHTML = '<h3>🚗 Car Door Status: LOCKED</h3>';
                         }}
                     }}
                     
@@ -137,7 +137,7 @@ class GarageHTTPHandler(BaseHTTPRequestHandler):
                     
                     // Auto-refresh status every 5 seconds
                     setInterval(() => {{
-                        fetch('/')
+                        fetch('/car/status')
                         .then(response => response.json())
                         .then(data => {{
                             updateStatus(data.status);
@@ -155,13 +155,13 @@ class GarageHTTPHandler(BaseHTTPRequestHandler):
     
     def do_POST(self):
         """
-        Handle POST requests for garage commands
+        Handle POST requests for car door lock/unlock commands
         """
-        global garage_status, last_command, last_command_time, cc3200_status, last_cc3200_update
+        global car_door_status, last_command, last_command_time, cc3200_status, last_cc3200_update
         
-        if self.path == "/open":
-            garage_status = "open"
-            last_command = "open"
+        if self.path == "/lock":
+            car_door_status = "locked"
+            last_command = "lock"
             last_command_time = datetime.now()
             
             self.send_response(200)
@@ -170,17 +170,17 @@ class GarageHTTPHandler(BaseHTTPRequestHandler):
             
             response = {
                 "result": "success",
-                "action": "open",
-                "status": "open",
+                "action": "lock",
+                "status": "locked",
                 "timestamp": datetime.now().isoformat()
             }
             
             self.wfile.write(json.dumps(response).encode())
-            print(f"[{datetime.now().strftime('%H:%M:%S')}] Garage door OPENED via HTTP")
+            print(f"[{datetime.now().strftime('%H:%M:%S')}] Car door LOCKED via HTTP")
             
-        elif self.path == "/close":
-            garage_status = "closed"
-            last_command = "close"
+        elif self.path == "/unlock":
+            car_door_status = "unlocked"
+            last_command = "unlock"
             last_command_time = datetime.now()
             
             self.send_response(200)
@@ -189,15 +189,15 @@ class GarageHTTPHandler(BaseHTTPRequestHandler):
             
             response = {
                 "result": "success",
-                "action": "close",
-                "status": "closed",
+                "action": "unlock",
+                "status": "unlocked",
                 "timestamp": datetime.now().isoformat()
             }
             
             self.wfile.write(json.dumps(response).encode())
-            print(f"[{datetime.now().strftime('%H:%M:%S')}] Garage door CLOSED via HTTP")
+            print(f"[{datetime.now().strftime('%H:%M:%S')}] Car door UNLOCKED via HTTP")
             
-        elif self.path == "/api/garage/status":
+        elif self.path == "/api/car/status":
             # Handle CC3200 status updates
             cc3200_status = True
             last_cc3200_update = datetime.now()
@@ -210,9 +210,9 @@ class GarageHTTPHandler(BaseHTTPRequestHandler):
                 data = json.loads(post_data.decode('utf-8'))
                 print(f"[{datetime.now().strftime('%H:%M:%S')}] CC3200 Status Update: {data}")
                 
-                # Update garage status if provided
+                # Update car door status if provided
                 if 'status' in data:
-                    garage_status = data['status']
+                    car_door_status = data['status']
                 
             except Exception as e:
                 print(f"[{datetime.now().strftime('%H:%M:%S')}] Error parsing CC3200 status: {e}")
@@ -249,8 +249,8 @@ def start_server():
     Start the HTTP server
     """
     try:
-        server = HTTPServer((HOST, PORT), GarageHTTPHandler)
-        print(f"=== CC3200 HTTP Garage Server (Fixed) ===")
+        server = HTTPServer((HOST, PORT), CarDoorHTTPHandler)
+        print(f"=== CC3200 HTTP Car Door Server (Fixed) ===")
         print(f"Server started on {HOST}:{PORT}")
         print(f"Web interface: http://localhost:{PORT}")
         print()

@@ -246,6 +246,10 @@ PORT = 5000        # Server port
 4. Test thoroughly
 5. Submit a pull request
 
+## Author
+
+**Mohamed Eldemellawy**
+
 ## License
 
 This project is for educational and testing purposes. Use at your own risk.

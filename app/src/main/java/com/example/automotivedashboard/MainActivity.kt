@@ -14,7 +14,7 @@ import java.util.concurrent.TimeUnit
 
 /**
  * MainActivity for Automotive Dashboard app.
- * Handles garage commands using HTTP.
+ * Handles car door lock/unlock commands using HTTP.
  *
  * @author Abdelrahman Mohamed
  */
@@ -33,11 +33,11 @@ class MainActivity : AppCompatActivity() {
 
         connectionStatusTextView = findViewById(R.id.connectionStatusTextView)
 
-        val openBtn = findViewById<Button>(R.id.openGarageButton)
-        val closeBtn = findViewById<Button>(R.id.closeGarageButton)
+        val lockBtn = findViewById<Button>(R.id.lockCarButton)
+        val unlockBtn = findViewById<Button>(R.id.unlockCarButton)
 
-        openBtn.setOnClickListener { sendGarageCommand("open") }
-        closeBtn.setOnClickListener { sendGarageCommand("close") }
+        lockBtn.setOnClickListener { sendCarDoorCommand("lock") }
+        unlockBtn.setOnClickListener { sendCarDoorCommand("unlock") }
 
         // Initialize HTTP client
         httpClient = OkHttpClient.Builder()
@@ -84,10 +84,10 @@ class MainActivity : AppCompatActivity() {
     }
 
     /**
-     * Sends a garage command via HTTP to the CC3200.
-     * @param action The action to perform ("open" or "close").
+     * Sends a car door lock/unlock command via HTTP to the CC3200.
+     * @param action The action to perform ("lock" or "unlock").
      */
-    private fun sendGarageCommand(action: String) {
+    private fun sendCarDoorCommand(action: String) {
         val json = JSONObject().apply {
             put("command", action)
             put("timestamp", System.currentTimeMillis())
@@ -118,7 +118,7 @@ class MainActivity : AppCompatActivity() {
                 
                 runOnUiThread {
                     if (response.isSuccessful) {
-                        Toast.makeText(this@MainActivity, "Garage $action command sent successfully!", Toast.LENGTH_SHORT).show()
+                        Toast.makeText(this@MainActivity, "Car door $action command sent successfully!", Toast.LENGTH_SHORT).show()
                         
                         // Also send to PC server for logging
                         sendToPcServer(action)
@@ -132,7 +132,7 @@ class MainActivity : AppCompatActivity() {
 
     /**
      * Sends command to PC server for logging and monitoring.
-     * @param action The action performed ("open" or "close").
+     * @param action The action performed ("lock" or "unlock").
      */
     private fun sendToPcServer(action: String) {
         val json = JSONObject().apply {
